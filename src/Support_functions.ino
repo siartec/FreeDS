@@ -101,6 +101,7 @@ void every500ms(void)
 
 void every1000ms(void)
 {
+  //Serial.printf(PSTR("\nFree Heap: %d bytes, Fragmentation: %.02f %%\n"), ESP.getFreeHeap(), getFragmentation());
   calcWattsToday(); // Calculate the imported / exported energy
   if (config.flags.sensorTemperatura) { calcDallasTemperature(); } // Read temp sensors
   if (config.flags.debugPID) {
@@ -128,6 +129,7 @@ char *dtostrfd(double number, unsigned char prec, char *s)
   }
 }
 
+// Tasmota Function
 int WifiGetRssiAsQuality(int rssi)
 {
   int quality = 0;
@@ -184,11 +186,13 @@ void changeScreen(void)
       case 0: // AUTO
         config.flags.pwmEnabled = true;
         config.flags.pwmMan = false;
+        changeToAuto();
         break;
 
       case 1: // MANUAL
         config.flags.pwmEnabled = true;
         config.flags.pwmMan = true;
+        changeToManual();
         break;
 
       case 2: // OFF
@@ -652,6 +656,22 @@ int INFOV(const char * __restrict format, ...)
 	return rcode;
 }
 
+void handleRelays(uint8_t Relay, bool State)
+{
+  
+  #define RELAYS 4
+
+  const uint8_t pinRelays[RELAYS] = { PIN_RL1, PIN_RL2, PIN_RL3, PIN_RL4 };
+
+  if (Relay < 1 || Relay > 4) Relay = 1;
+  
+  digitalWrite(pinRelays[Relay - 1], State);
+  parseSocket(Relay, State);
+  
+  if (config.flags.mqtt && !Error.ConexionMqtt && strcmp("5.8.8.8", config.sensor_ip) != 0)
+    publisher(config.Relay_mqtt[(Relay - 1)], State ? "ON" : "OFF");
+}
+
 float getFragmentation() {
   //return 100 - getLargestAvailableBlock() * 100.0 / getTotalAvailableMemory();
   return 100 - ESP.getMaxAllocHeap() * 100.0 / ESP.getFreeHeap();
@@ -925,6 +945,21 @@ void checkEEPROM(void) {
     config.solaxVersion = 2;
     config.flags.useExternalMeter = false;
     config.eeinit = 0x17;
+  }
+
+  if(config.eeinit == 0x17)
+  {
+    strcpy(config.socketIP[0], "127.0.0.1");
+    strcpy(config.socketIP[1], "127.0.0.1");
+    strcpy(config.socketIP[2], "127.0.0.1");
+    strcpy(config.socketIP[3], "127.0.0.1");
+    memset(config.socketPass[0], 0, sizeof config.socketPass[0]);
+    memset(config.socketPass[1], 0, sizeof config.socketPass[1]);
+    memset(config.socketPass[2], 0, sizeof config.socketPass[2]);
+    memset(config.socketPass[3], 0, sizeof config.socketPass[3]);
+    config.relayOffTime = 60000;
+    config.relayOnTime = 20000;
+    config.eeinit = 0x18;
     INFOV(PSTR("EEPROM Settings upgraded from version %x to version %x\n"), actualVersion, config.eeinit);
     saveEEPROM();
   }

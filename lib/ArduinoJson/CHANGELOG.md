@@ -1,8 +1,22 @@
 ArduinoJson: change log
 =======================
 
-HEAD
-----
+v6.18.1 (2021-07-03)
+-------
+
+* Fixed support for `volatile float` and `volatile double` (issue #1557)
+* Fixed error `[Pe070]: incomplete type is not allowed` on IAR (issue #1560)
+* Fixed `serializeJson(doc, String)` when allocation fails (issue #1572)
+* Fixed clang-tidy warnings (issue #1574, PR #1577 by @armandas)
+* Added fake class `InvalidConversion<T1,T2>` to easily identify invalid conversions (issue #1585)
+* Added support for `std::string_view` (issue #1578, PR #1554 by @0xFEEDC0DE64)
+* Fixed warning `definition of implicit copy constructor for 'MsgPackDeserializer' is deprecated because it has a user-declared copy assignment operator`
+* Added `JsonArray::clear()` (issue #1597)
+* Fixed `JsonVariant::as<unsigned>()` (issue #1601)
+* Added support for ESP-IDF component build (PR #1562 by @qt1, PR #1599 by @andreaskuster)
+
+v6.18.0 (2021-05-05)
+-------
 
 * Added support for custom converters (issue #687)
 * Added support for `Printable` (issue #1444)
@@ -16,6 +30,9 @@ HEAD
 * Simplified `JsonVariant::as<T>()` to always return `T` (see below)
 * Updated folders list in `.mbedignore` (PR #1515 by @AGlass0fMilk)
 * Fixed member-call-on-null-pointer in `getMember()` when array is empty
+* `serializeMsgPack(doc, buffer, size)` doesn't add null-terminator anymore (issue #1545)
+* `serializeJson(doc, buffer, size)` adds null-terminator only if there is enough room
+* PlatformIO: set `build.libArchive` to `false` (PR #1550 by @askreet)
 
 > ### BREAKING CHANGES
 >
@@ -40,6 +57,7 @@ HEAD
 > int8_t age;
 > doc["age"] = age;  // OK
 > ```
+> A deprecation warning with the message "Support for `char` is deprecated, use `int8_t` or `uint8_t` instead" was added to allow a smooth transition.
 >
 > #### `as<T>()` always returns `T`
 >

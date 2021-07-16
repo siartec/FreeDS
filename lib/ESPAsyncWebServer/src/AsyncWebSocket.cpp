@@ -484,6 +484,7 @@ AsyncWebSocketClient::AsyncWebSocketClient(AsyncWebServerRequest *request, Async
   _clientId = _server->_getNextId();
   _status = WS_CONNECTED;
   _pstate = 0;
+  _pinfo.num = 0;
   _lastMessageTime = millis();
   _keepAlivePeriod = 0;
   _client->setRxTimeout(0);
@@ -496,6 +497,7 @@ AsyncWebSocketClient::AsyncWebSocketClient(AsyncWebServerRequest *request, Async
   _server->_addClient(this);
   _server->_handleEvent(this, WS_EVT_CONNECT, request, NULL, 0);
   delete request;
+  memset(&_pinfo,0,sizeof(_pinfo));
 }
 
 AsyncWebSocketClient::~AsyncWebSocketClient(){
@@ -663,9 +665,11 @@ void AsyncWebSocketClient::_onData(void *pbuf, size_t plen){
         if(_pinfo.opcode){
           _pinfo.message_opcode = _pinfo.opcode;
           _pinfo.num = 0;
-        } else _pinfo.num += 1;
+        // } else _pinfo.num += 1;
+        }
       }
-      _server->_handleEvent(this, WS_EVT_DATA, (void *)&_pinfo, (uint8_t*)data, datalen);
+      // _server->_handleEvent(this, WS_EVT_DATA, (void *)&_pinfo, (uint8_t*)data, datalen);
+      if (datalen > 0) _server->_handleEvent(this, WS_EVT_DATA, (void *)&_pinfo, (uint8_t*)data, datalen);
 
       _pinfo.index += datalen;
     } else if((datalen + _pinfo.index) == _pinfo.len){
@@ -691,6 +695,8 @@ void AsyncWebSocketClient::_onData(void *pbuf, size_t plen){
       } else if(_pinfo.opcode == WS_PONG){
         if(datalen != AWSC_PING_PAYLOAD_LEN || memcmp(AWSC_PING_PAYLOAD, data, AWSC_PING_PAYLOAD_LEN) != 0)
           _server->_handleEvent(this, WS_EVT_PONG, NULL, data, datalen);
+          if (_pinfo.final) _pinfo.num = 0;
+          else _pinfo.num += 1;
       } else if(_pinfo.opcode < 8){//continuation or text/binary frame
         _server->_handleEvent(this, WS_EVT_DATA, (void *)&_pinfo, data, datalen);
       }

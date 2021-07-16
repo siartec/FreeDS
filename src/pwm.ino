@@ -118,98 +118,87 @@ void pwmControl()
 
   if (!config.flags.pwmMan && config.flags.pwmEnabled)
   {
-    if (!digitalRead(PIN_RL1) && Flags.RelayTurnOn && (pwm.pwmValue >= config.R01Min))
+    if (!digitalRead(PIN_RL1) && Flags.RelayTurnOn && (pwm.pwmValue >= config.R01OffPercent))
     {
-      // Start relay1
-      digitalWrite(PIN_RL1, HIGH);
+      // Start relay 1
+      handleRelays(1, HIGH);
+      
       INFOV("Encendido por %% Salida 1\n");
       Flags.RelayTurnOn = false;
       Flags.Relay01Auto = true;
-      if (config.flags.mqtt && !Error.ConexionMqtt && strcmp("5.8.8.8", config.sensor_ip) != 0)
-        publisher(config.R01_mqtt, digitalRead(PIN_RL1) ? "ON" : "OFF");
+
+      if (xTimerIsTimerActive(relayOffTimer) != pdFALSE) { disableRelay(); Flags.RelayTurnOff = false; }
     }
 
-    if (!digitalRead(PIN_RL2) && Flags.RelayTurnOn && (pwm.pwmValue >= config.R02Min))
+    if (!digitalRead(PIN_RL2) && Flags.RelayTurnOn && (pwm.pwmValue >= config.R02OffPercent))
     {
       // Start relay2
-      digitalWrite(PIN_RL2, HIGH);
+      handleRelays(2, HIGH);
+
       INFOV("Encendido por %% Salida 2\n");
       Flags.RelayTurnOn = false;
       Flags.Relay02Auto = true;
-      if (config.flags.mqtt && !Error.ConexionMqtt && strcmp("5.8.8.8", config.sensor_ip) != 0)
-        publisher(config.R02_mqtt, digitalRead(PIN_RL2) ? "ON" : "OFF");
+
+      if (xTimerIsTimerActive(relayOffTimer) != pdFALSE) { disableRelay(); Flags.RelayTurnOff = false; }
     }
 
-    if (!digitalRead(PIN_RL3) && Flags.RelayTurnOn && (pwm.pwmValue >= config.R03Min))
+    if (!digitalRead(PIN_RL3) && Flags.RelayTurnOn && (pwm.pwmValue >= config.R03OffPercent))
     {
       // Start relay3
-      digitalWrite(PIN_RL3, HIGH);
+      handleRelays(3, HIGH);
+
       INFOV("Encendido por %% Salida 3\n");
       Flags.RelayTurnOn = false;
       Flags.Relay03Auto = true;
-      if (config.flags.mqtt && !Error.ConexionMqtt && strcmp("5.8.8.8", config.sensor_ip) != 0)
-        publisher(config.R03_mqtt, digitalRead(PIN_RL3) ? "ON" : "OFF");
+
+      if (xTimerIsTimerActive(relayOffTimer) != pdFALSE) { disableRelay(); Flags.RelayTurnOff = false; }
     }
 
-    if (!digitalRead(PIN_RL4) && Flags.RelayTurnOn && (pwm.pwmValue >= config.R04Min))
+    if (!digitalRead(PIN_RL4) && Flags.RelayTurnOn && (pwm.pwmValue >= config.R04OffPercent))
     {
       // Start relay4
-      digitalWrite(PIN_RL4, HIGH);
+      handleRelays(4, HIGH);
+      
       INFOV("Encendido por %% Salida 4\n");
       Flags.RelayTurnOn = false;
       Flags.Relay04Auto = true;
-      if (config.flags.mqtt && !Error.ConexionMqtt && strcmp("5.8.8.8", config.sensor_ip) != 0)
-        publisher(config.R04_mqtt, digitalRead(PIN_RL4) ? "ON" : "OFF");
+
+      if (xTimerIsTimerActive(relayOffTimer) != pdFALSE) { disableRelay(); Flags.RelayTurnOff = false; }
     }
   }
 
   // Stop at defined porcent of power
 
-  if (!Flags.RelayTurnOff)
+  // if (!Flags.RelayTurnOff)
+  if (!Flags.timerOffIsRunning)
   {
-    if (!(Flags.Relay04Man || config.relaysFlags.R04Man) && digitalRead(PIN_RL4) && !Flags.RelayTurnOff && (pwm.pwmValue <= ((config.R04Min - 10) < 0 ? 0 : (config.R04Min - 10))) && config.R04Min != 999)
+    // Stop relay 4
+    if (!(Flags.Relay04ManualApi || config.relaysFlags.R04ManualSwitch) && digitalRead(PIN_RL4) && !Flags.timerOffIsRunning && pwm.pwmValue < config.R04OffPercent && config.R04OffPercent != 999)
     {
-      digitalWrite(PIN_RL4, LOW);
-      INFOV("Apagado por %% Salida 4\n");
-      Flags.RelayTurnOff = true;
-      Flags.Relay04Auto = false;
-      if (config.flags.mqtt && !Error.ConexionMqtt && strcmp("5.8.8.8", config.sensor_ip) != 0)
-      {
-        publisher(config.R04_mqtt, digitalRead(PIN_RL4) ? "ON" : "OFF");
-      }
+      
+      if (Flags.RelayTurnOff) { handleRelays(4, LOW); INFOV("Apagado por %% Salida 4\n"); Flags.Relay04Auto = false; Flags.RelayTurnOff = false;}
+      else { xTimerStart(relayOffTimer, 0); Flags.timerOffIsRunning = true; }
     }
-    if (!(Flags.Relay03Man || config.relaysFlags.R03Man) && digitalRead(PIN_RL3) && !Flags.RelayTurnOff && (pwm.pwmValue <= ((config.R03Min - 10) < 0 ? 0 : (config.R03Min - 10))) && config.R03Min != 999)
+
+    // Stop relay 3
+    if (!(Flags.Relay03ManualApi || config.relaysFlags.R03ManualSwitch) && digitalRead(PIN_RL3) && !Flags.timerOffIsRunning && pwm.pwmValue < config.R03OffPercent && config.R03OffPercent != 999)
     {
-      digitalWrite(PIN_RL3, LOW);
-      INFOV("Apagado por %% Salida 3\n");
-      Flags.RelayTurnOff = true;
-      Flags.Relay03Auto = false;
-      if (config.flags.mqtt && !Error.ConexionMqtt && strcmp("5.8.8.8", config.sensor_ip) != 0)
-      {
-        publisher(config.R03_mqtt, digitalRead(PIN_RL3) ? "ON" : "OFF");
-      }
+      if (Flags.RelayTurnOff) { handleRelays(3, LOW); INFOV("Apagado por %% Salida 3\n"); Flags.Relay03Auto = false; Flags.RelayTurnOff = false;}
+      else { xTimerStart(relayOffTimer, 0); Flags.timerOffIsRunning = true; }
     }
-    if (!(Flags.Relay02Man || config.relaysFlags.R02Man) && digitalRead(PIN_RL2) && !Flags.RelayTurnOff && (pwm.pwmValue <= ((config.R02Min - 10) < 0 ? 0 : (config.R02Min - 10))) && config.R02Min != 999)
+
+    // Stop relay 2
+    if (!(Flags.Relay02ManualApi || config.relaysFlags.R02ManualSwitch) && digitalRead(PIN_RL2) && !Flags.timerOffIsRunning && pwm.pwmValue < config.R02OffPercent && config.R02OffPercent != 999)
     {
-      digitalWrite(PIN_RL2, LOW);
-      INFOV("Apagado por %% Salida 2\n");
-      Flags.RelayTurnOff = true;
-      Flags.Relay02Auto = false;
-      if (config.flags.mqtt && !Error.ConexionMqtt && strcmp("5.8.8.8", config.sensor_ip) != 0)
-      {
-        publisher(config.R02_mqtt, digitalRead(PIN_RL2) ? "ON" : "OFF");
-      }
+      if (Flags.RelayTurnOff) { handleRelays(2, LOW); INFOV("Apagado por %% Salida 2\n"); Flags.Relay02Auto = false; Flags.RelayTurnOff = false;}
+      else { xTimerStart(relayOffTimer, 0); Flags.timerOffIsRunning = true; INFOV("Timer Off Start 2\n"); }
     }
-    if (!(Flags.Relay01Man || config.relaysFlags.R01Man) && digitalRead(PIN_RL1) && !Flags.RelayTurnOff && (pwm.pwmValue <= ((config.R01Min - 10) < 0 ? 0 : (config.R01Min - 10))) && config.R01Min != 999)
+
+    // Stop relay 1
+    if (!(Flags.Relay01ManualApi || config.relaysFlags.R01ManualSwitch) && digitalRead(PIN_RL1) && !Flags.timerOffIsRunning && pwm.pwmValue < config.R01OffPercent && config.R01OffPercent != 999)
     {
-      digitalWrite(PIN_RL1, LOW);
-      INFOV("Apagado por %% Salida 1\n");
-      Flags.RelayTurnOff = true;
-      Flags.Relay01Auto = false;
-      if (config.flags.mqtt && !Error.ConexionMqtt && strcmp("5.8.8.8", config.sensor_ip) != 0)
-      {
-        publisher(config.R01_mqtt, digitalRead(PIN_RL1) ? "ON" : "OFF");
-      }
+      if (Flags.RelayTurnOff) { handleRelays(1, LOW); INFOV("Apagado por %% Salida 1\n"); Flags.Relay01Auto = false; Flags.RelayTurnOff = false;}
+      else { xTimerStart(relayOffTimer, 0); Flags.timerOffIsRunning = true; INFOV("Timer Off Start 1\n"); }
     }
   }
 
@@ -219,92 +208,80 @@ void pwmControl()
 
   if (!config.flags.pwmMan && config.flags.pwmEnabled && (pwm.pwmValue >= config.autoControlPWM))
   {
-    if (!digitalRead(PIN_RL1) && Flags.RelayTurnOn && config.R01Min == 999 && (config.flags.changeGridSign ? inverter.wgrid < config.R01PotOn : inverter.wgrid > config.R01PotOn))
+    if (!digitalRead(PIN_RL1) && Flags.RelayTurnOn && config.R01OffPercent == 999 && (config.flags.changeGridSign ? inverter.wgrid < config.R01PotOn : inverter.wgrid > config.R01PotOn))
     {
       // Start relay1
-      digitalWrite(PIN_RL1, HIGH);
+      handleRelays(1, HIGH);
+
       INFOV("Encendido por W Salida 1\n");
       Flags.Relay01Auto = true;
       Flags.RelayTurnOn = false;
-      if (config.flags.mqtt && !Error.ConexionMqtt && strcmp("5.8.8.8", config.sensor_ip) != 0)
-        publisher(config.R01_mqtt, digitalRead(PIN_RL1) ? "ON" : "OFF");
+
+      if (xTimerIsTimerActive(relayOffTimer) != pdFALSE) { disableRelay(); Flags.RelayTurnOff = false; }
     }
-    if (!digitalRead(PIN_RL2) && Flags.RelayTurnOn && config.R02Min == 999 && (config.flags.changeGridSign ? inverter.wgrid < config.R02PotOn : inverter.wgrid > config.R02PotOn))
+    if (!digitalRead(PIN_RL2) && Flags.RelayTurnOn && config.R02OffPercent == 999 && (config.flags.changeGridSign ? inverter.wgrid < config.R02PotOn : inverter.wgrid > config.R02PotOn))
     {
       // Start relay2
-      digitalWrite(PIN_RL2, HIGH);
+      handleRelays(2, HIGH);
+
       INFOV("Encendido por W Salida 2\n");
       Flags.Relay02Auto = true;
       Flags.RelayTurnOn = false;
-      if (config.flags.mqtt && !Error.ConexionMqtt && strcmp("5.8.8.8", config.sensor_ip) != 0)
-        publisher(config.R02_mqtt, digitalRead(PIN_RL2) ? "ON" : "OFF");
+
+      if (xTimerIsTimerActive(relayOffTimer) != pdFALSE) { disableRelay(); Flags.RelayTurnOff = false; }
     }
-    if (!digitalRead(PIN_RL3) && Flags.RelayTurnOn && config.R03Min == 999 && (config.flags.changeGridSign ? inverter.wgrid < config.R03PotOn : inverter.wgrid > config.R03PotOn))
+    if (!digitalRead(PIN_RL3) && Flags.RelayTurnOn && config.R03OffPercent == 999 && (config.flags.changeGridSign ? inverter.wgrid < config.R03PotOn : inverter.wgrid > config.R03PotOn))
     {
       // Start relay3
-      digitalWrite(PIN_RL3, HIGH);
+      handleRelays(3, HIGH);
+
       INFOV("Encendido por W Salida 3\n");
       Flags.Relay03Auto = true;
       Flags.RelayTurnOn = false;
-      if (config.flags.mqtt && !Error.ConexionMqtt && strcmp("5.8.8.8", config.sensor_ip) != 0)
-        publisher(config.R03_mqtt, digitalRead(PIN_RL3) ? "ON" : "OFF");
+
+      if (xTimerIsTimerActive(relayOffTimer) != pdFALSE) { disableRelay(); Flags.RelayTurnOff = false; }
     }
-    if (!digitalRead(PIN_RL4) && Flags.RelayTurnOn && config.R04Min == 999 && (config.flags.changeGridSign ? inverter.wgrid < config.R04PotOn : inverter.wgrid > config.R04PotOn))
+    if (!digitalRead(PIN_RL4) && Flags.RelayTurnOn && config.R04OffPercent == 999 && (config.flags.changeGridSign ? inverter.wgrid < config.R04PotOn : inverter.wgrid > config.R04PotOn))
     {
       // Start relay4
-      digitalWrite(PIN_RL4, HIGH);
+      handleRelays(4, HIGH);
+
       INFOV("Encendido por W Salida 4\n");
       Flags.Relay04Auto = true;
       Flags.RelayTurnOn = false;
-      if (config.flags.mqtt && !Error.ConexionMqtt && strcmp("5.8.8.8", config.sensor_ip) != 0)
-        publisher(config.R04_mqtt, digitalRead(PIN_RL4) ? "ON" : "OFF");
+
+      if (xTimerIsTimerActive(relayOffTimer) != pdFALSE) { disableRelay(); Flags.RelayTurnOff = false; }
     }
   }
 
   // Stop at defined power off
 
-  if (!(Flags.Relay04Man || config.relaysFlags.R04Man) && digitalRead(PIN_RL4) && !Flags.RelayTurnOff && config.R04Min == 999 && (config.flags.changeGridSign ? inverter.wgrid > config.R04PotOff : inverter.wgrid < config.R04PotOff))
+  if (!(Flags.Relay04ManualApi || config.relaysFlags.R04ManualSwitch) && digitalRead(PIN_RL4) && !Flags.timerOffIsRunning && config.R04OffPercent == 999 && (config.flags.changeGridSign ? inverter.wgrid > config.R04PotOff : inverter.wgrid < config.R04PotOff))
   {
-    // Start relay4
-    digitalWrite(PIN_RL4, LOW);
-    INFOV("Apagado por W Salida 4\n");
-    Flags.Relay04Auto = false;
-    Flags.RelayTurnOff = true;
-    if (config.flags.mqtt && !Error.ConexionMqtt && strcmp("5.8.8.8", config.sensor_ip) != 0)
-      publisher(config.R04_mqtt, digitalRead(PIN_RL4) ? "ON" : "OFF");
+    // Stop Relay 4
+    if (Flags.RelayTurnOff) { handleRelays(4, LOW); INFOV("Apagado por W Salida 4\n"); Flags.Relay04Auto = false; Flags.RelayTurnOff = false;}
+    else { xTimerStart(relayOffTimer, 0); Flags.timerOffIsRunning = true; INFOV("Timer Off Start 4\n"); }
   }
 
-  if (!(Flags.Relay03Man || config.relaysFlags.R03Man) && digitalRead(PIN_RL3) && !Flags.RelayTurnOff && config.R03Min == 999 && (config.flags.changeGridSign ? inverter.wgrid > config.R03PotOff : inverter.wgrid < config.R03PotOff))
+  if (!(Flags.Relay03ManualApi || config.relaysFlags.R03ManualSwitch) && digitalRead(PIN_RL3) && !Flags.timerOffIsRunning && config.R03OffPercent == 999 && (config.flags.changeGridSign ? inverter.wgrid > config.R03PotOff : inverter.wgrid < config.R03PotOff))
   {
-    // Start relay3
-    digitalWrite(PIN_RL3, LOW);
-    INFOV("Apagado por W Salida 3\n");
-    Flags.Relay03Auto = false;
-    Flags.RelayTurnOff = true;
-    if (config.flags.mqtt && !Error.ConexionMqtt && strcmp("5.8.8.8", config.sensor_ip) != 0)
-      publisher(config.R03_mqtt, digitalRead(PIN_RL3) ? "ON" : "OFF");
+    // Stop Relay 3
+    if (Flags.RelayTurnOff) { handleRelays(3, LOW); INFOV("Apagado por W Salida 3\n"); Flags.Relay03Auto = false; Flags.RelayTurnOff = false;}
+    else { xTimerStart(relayOffTimer, 0); Flags.timerOffIsRunning = true; INFOV("Timer Off Start 3\n"); }
   }
 
-  if (!(Flags.Relay02Man || config.relaysFlags.R02Man) && digitalRead(PIN_RL2) && !Flags.RelayTurnOff && config.R02Min == 999 && (config.flags.changeGridSign ? inverter.wgrid > config.R02PotOff : inverter.wgrid < config.R02PotOff))
+  if (!(Flags.Relay02ManualApi || config.relaysFlags.R02ManualSwitch) && digitalRead(PIN_RL2) && !Flags.timerOffIsRunning && config.R02OffPercent == 999 && (config.flags.changeGridSign ? inverter.wgrid > config.R02PotOff : inverter.wgrid < config.R02PotOff))
   {
-    // Start relay2
-    digitalWrite(PIN_RL2, LOW);
-    INFOV("Apagado por W Salida 2\n");
-    Flags.Relay02Auto = false;
-    Flags.RelayTurnOff = true;
-    if (config.flags.mqtt && !Error.ConexionMqtt && strcmp("5.8.8.8", config.sensor_ip) != 0)
-      publisher(config.R02_mqtt, digitalRead(PIN_RL2) ? "ON" : "OFF");
+    // Stop Relay 2
+    if (Flags.RelayTurnOff) { handleRelays(2, LOW); INFOV("Apagado por W Salida 2\n"); Flags.Relay02Auto = false; Flags.RelayTurnOff = false;}
+    else { xTimerStart(relayOffTimer, 0); Flags.timerOffIsRunning = true; INFOV("Timer Off Start 2\n"); }
   }
 
-  if (!(Flags.Relay01Man || config.relaysFlags.R01Man) && digitalRead(PIN_RL1) && !Flags.RelayTurnOff && config.R01Min == 999 && (config.flags.changeGridSign ? inverter.wgrid > config.R01PotOff : inverter.wgrid < config.R01PotOff))
+  if (!(Flags.Relay01ManualApi || config.relaysFlags.R01ManualSwitch) && digitalRead(PIN_RL1) && !Flags.timerOffIsRunning && config.R01OffPercent == 999 && (config.flags.changeGridSign ? inverter.wgrid > config.R01PotOff : inverter.wgrid < config.R01PotOff))
   {
-    // Start relay1
-    digitalWrite(PIN_RL1, LOW);
-    INFOV("Apagado por W Salida 1\n");
-    Flags.Relay01Auto = false;
-    Flags.RelayTurnOff = true;
-    if (config.flags.mqtt && !Error.ConexionMqtt && strcmp("5.8.8.8", config.sensor_ip) != 0)
-      publisher(config.R01_mqtt, digitalRead(PIN_RL1) ? "ON" : "OFF");
+    // Stop Relay 1
+    if (Flags.RelayTurnOff) { handleRelays(1, LOW); INFOV("Apagado por W Salida 1\n"); Flags.Relay01Auto = false; Flags.RelayTurnOff = false;}
+    else { xTimerStart(relayOffTimer, 0); Flags.timerOffIsRunning = true; INFOV("Timer Off Start 1\n"); }
   }
 
   if (!Flags.RelayTurnOn && xTimerIsTimerActive(relayOnTimer) == pdFALSE)
@@ -312,10 +289,10 @@ void pwmControl()
     xTimerStart(relayOnTimer, 0);
   }
 
-  if (Flags.RelayTurnOff && xTimerIsTimerActive(relayOffTimer) == pdFALSE)
-  {
-    xTimerStart(relayOffTimer, 0);
-  } 
+  // if (Flags.RelayTurnOff && xTimerIsTimerActive(relayOffTimer) == pdFALSE)
+  // {
+  //   xTimerStart(relayOffTimer, 0);
+  // } 
 }
 
 void enableRelay(void)
@@ -326,7 +303,8 @@ void enableRelay(void)
 
 void disableRelay(void)
 {
-  Flags.RelayTurnOff = false;
+  Flags.RelayTurnOff = true;
+  Flags.timerOffIsRunning = false; 
   xTimerStop(relayOffTimer, 0);
 }
 
@@ -335,43 +313,43 @@ void relayManualControl(boolean forceOFF)
 
   if (config.flags.debug2) { INFOV("relayManualControl()\n"); }
 
-  // if (!(Flags.Relay01Man || config.relaysFlags.R01Man) && !Flags.Relay01Auto)
-  //   digitalWrite(PIN_RL1, LOW);
-  // if (!(Flags.Relay02Man || config.relaysFlags.R02Man) && !Flags.Relay02Auto)
-  //   digitalWrite(PIN_RL2, LOW);
-  // if (!(Flags.Relay03Man || config.relaysFlags.R03Man) && !Flags.Relay03Auto)
-  //   digitalWrite(PIN_RL3, LOW);
-  // if (!(Flags.Relay04Man || config.relaysFlags.R04Man) && !Flags.Relay04Auto)
-  //   digitalWrite(PIN_RL4, LOW);
+  // if (!(Flags.Relay01ManualApi || config.relaysFlags.R01ManualSwitch) && !Flags.Relay01Auto)
+  //   handleRelays(4, LOW);
+  // if (!(Flags.Relay02ManualApi || config.relaysFlags.R02ManualSwitch) && !Flags.Relay02Auto)
+  //   handleRelays(2, LOW);
+  // if (!(Flags.Relay03ManualApi || config.relaysFlags.R03ManualSwitch) && !Flags.Relay03Auto)
+  //   handleRelays(3, LOW);
+  // if (!(Flags.Relay04ManualApi || config.relaysFlags.R04ManualSwitch) && !Flags.Relay04Auto)
+  //   handleRelays(4, LOW);
 
   // Se activan las salidas seleccionadas manualmente si no lo están ya
-  if ((Flags.Relay01Man || config.relaysFlags.R01Man) && !digitalRead(PIN_RL1)) { digitalWrite(PIN_RL1, HIGH); INFOV("Relay 1 Forced On\n");}
-  if ((Flags.Relay02Man || config.relaysFlags.R02Man) && !digitalRead(PIN_RL2)) { digitalWrite(PIN_RL2, HIGH); INFOV("Relay 2 Forced On\n");}
-  if ((Flags.Relay03Man || config.relaysFlags.R03Man) && !digitalRead(PIN_RL3)) { digitalWrite(PIN_RL3, HIGH); INFOV("Relay 3 Forced On\n");}
-  if ((Flags.Relay04Man || config.relaysFlags.R04Man) && !digitalRead(PIN_RL4)) { digitalWrite(PIN_RL4, HIGH); INFOV("Relay 4 Forced On\n");}
+  if ((Flags.Relay01ManualApi || config.relaysFlags.R01ManualSwitch || Flags.Relay01Auto) && !digitalRead(PIN_RL1)) { handleRelays(1, HIGH); INFOV("Relay 1 On\n");}
+  if ((Flags.Relay02ManualApi || config.relaysFlags.R02ManualSwitch || Flags.Relay02Auto) && !digitalRead(PIN_RL2)) { handleRelays(2, HIGH); INFOV("Relay 2 On\n");}
+  if ((Flags.Relay03ManualApi || config.relaysFlags.R03ManualSwitch || Flags.Relay03Auto) && !digitalRead(PIN_RL3)) { handleRelays(3, HIGH); INFOV("Relay 3 On\n");}
+  if ((Flags.Relay04ManualApi || config.relaysFlags.R04ManualSwitch || Flags.Relay04Auto) && !digitalRead(PIN_RL4)) { handleRelays(4, HIGH); INFOV("Relay 4 On\n");}
 
   // Se desactivan las salidas seleccionadas manualmente si no lo están ya
-  if ((!Flags.Relay01Man && !config.relaysFlags.R01Man) && digitalRead(PIN_RL1)) { digitalWrite(PIN_RL1, LOW); INFOV("Relay 1 Forced Off\n");}
-  if ((!Flags.Relay02Man && !config.relaysFlags.R02Man) && digitalRead(PIN_RL2)) { digitalWrite(PIN_RL2, LOW); INFOV("Relay 2 Forced Off\n");}
-  if ((!Flags.Relay03Man && !config.relaysFlags.R03Man) && digitalRead(PIN_RL3)) { digitalWrite(PIN_RL3, LOW); INFOV("Relay 3 Forced Off\n");}
-  if ((!Flags.Relay04Man && !config.relaysFlags.R04Man) && digitalRead(PIN_RL4)) { digitalWrite(PIN_RL4, LOW); INFOV("Relay 4 Forced Off\n");}
+  if ((!Flags.Relay01ManualApi && !config.relaysFlags.R01ManualSwitch && !Flags.Relay01Auto) && digitalRead(PIN_RL1)) { handleRelays(1, LOW); INFOV("Relay 1 Off\n");}
+  if ((!Flags.Relay02ManualApi && !config.relaysFlags.R02ManualSwitch && !Flags.Relay02Auto) && digitalRead(PIN_RL2)) { handleRelays(2, LOW); INFOV("Relay 2 Off\n");}
+  if ((!Flags.Relay03ManualApi && !config.relaysFlags.R03ManualSwitch && !Flags.Relay03Auto) && digitalRead(PIN_RL3)) { handleRelays(3, LOW); INFOV("Relay 3 Off\n");}
+  if ((!Flags.Relay04ManualApi && !config.relaysFlags.R04ManualSwitch && !Flags.Relay04Auto) && digitalRead(PIN_RL4)) { handleRelays(4, LOW); INFOV("Relay 4 Off\n");}
 
   // Se fuerza el apagado de todas las salidas
-  if (forceOFF)
+  if (forceOFF && Flags.bootCompleted)
   {
-    digitalWrite(PIN_RL1, LOW); INFOV("Relay 1 Forced Off\n");
-    digitalWrite(PIN_RL2, LOW); INFOV("Relay 2 Forced Off\n");
-    digitalWrite(PIN_RL3, LOW); INFOV("Relay 3 Forced Off\n");
-    digitalWrite(PIN_RL4, LOW); INFOV("Relay 4 Forced Off\n");
+    for (int i = 0; i < 5; i++){
+      handleRelays(i + 1, LOW); INFOV("Relay %d Forced Off\n", i +1);
+      delay(50);
+    }
   }
 
   // Se fuerza el apagado de todas las salidas
   // if (forceOFF || !config.flags.pwmEnabled)
   // {
-  //   if (digitalRead(PIN_RL1) && !Flags.Relay01Man && !config.relaysFlags.R01Man) { digitalWrite(PIN_RL1, LOW); INFOV("Relay 1 Forced Off\n"); }
-  //   if (digitalRead(PIN_RL2) && !Flags.Relay02Man && !config.relaysFlags.R02Man) { digitalWrite(PIN_RL2, LOW); INFOV("Relay 2 Forced Off\n"); }
-  //   if (digitalRead(PIN_RL3) && !Flags.Relay03Man && !config.relaysFlags.R03Man) { digitalWrite(PIN_RL3, LOW); INFOV("Relay 3 Forced Off\n"); }
-  //   if (digitalRead(PIN_RL4) && !Flags.Relay04Man && !config.relaysFlags.R04Man) { digitalWrite(PIN_RL4, LOW); INFOV("Relay 4 Forced Off\n"); }
+  //   if (digitalRead(PIN_RL1) && !Flags.Relay01ManualApi && !config.relaysFlags.R01ManualSwitch) { handleRelays(1, LOW); INFOV("Relay 1 Forced Off\n"); }
+  //   if (digitalRead(PIN_RL2) && !Flags.Relay02ManualApi && !config.relaysFlags.R02ManualSwitch) { handleRelays(2, LOW); INFOV("Relay 2 Forced Off\n"); }
+  //   if (digitalRead(PIN_RL3) && !Flags.Relay03ManualApi && !config.relaysFlags.R03ManualSwitch) { handleRelays(3, LOW); INFOV("Relay 3 Forced Off\n"); }
+  //   if (digitalRead(PIN_RL4) && !Flags.Relay04ManualApi && !config.relaysFlags.R04ManualSwitch) { handleRelays(4, LOW); INFOV("Relay 4 Forced Off\n"); }
   // }
 }
 
@@ -387,7 +365,7 @@ void shutdownPwm(boolean forceRelayOff, const char *message)
   pwm.invert_pwm = 0;
   pwm.pwmValue = 0;
   ledcWrite(2, 0); // Hard shutdown
-  dac_output_disable(DAC_CHANNEL_2);
+  dac_output_voltage(DAC_CHANNEL_2, 0);
   calcPwmProgressBar();
 
   relayManualControl(forceRelayOff);
@@ -398,7 +376,8 @@ void writePwmValue(uint16_t value)
   if (config.flags.dimmerLowCost && value > 1023) { value -= 1023; } 
     
   ledcWrite(2, value);
-  dac_output_voltage(DAC_CHANNEL_2, constrain((value / 4), 0, 255));
+  //dac_output_voltage(DAC_CHANNEL_2, constrain((value / 4), 0, 255));
+  dac_output_voltage(DAC_CHANNEL_2, constrain(((value * 255) / 1023), 0, 255));
   calcPwmProgressBar();
 }
 

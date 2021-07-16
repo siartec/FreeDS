@@ -71,10 +71,11 @@ void parseUDP(void)
     inverter.batteryWatts = meter.voltage * meter.current;
 
     uvalue = incomingPacket[37];
-    uvalue == 3 ? inverter.batteryWatts *= -1 : inverter.batteryWatts *= 1;
+    uvalue == 3 ? inverter.batteryWatts *= 1 : inverter.batteryWatts *= -1; // cambiado el orden del signo, falta comprobar
 
     // Battery SoC
-    uvalue = (incomingPacket[33] << 8) | (incomingPacket[34]);
+    //uvalue = (incomingPacket[33] << 8) | (incomingPacket[34]);
+    uvalue = incomingPacket[33];
     inverter.batterySoC = (float)uvalue;
 
     // Grid Voltage
@@ -93,7 +94,7 @@ void parseUDP(void)
     uvalue == 2 ? inverter.wgrid *= -1 : inverter.wgrid *= 1;
 
     // House Comsumption
-    inverter.loadWatts = inverter.wsolar + inverter.batteryWatts - inverter.wgrid;
+    inverter.loadWatts = inverter.wsolar - inverter.batteryWatts - inverter.wgrid;
 
     config.flags.changeGridSign ? inverter.wgrid *= -1 : inverter.wgrid *= 1;
     

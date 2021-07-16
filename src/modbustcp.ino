@@ -146,7 +146,7 @@ registerData wibeeeRegisters[] = {
 };
 
 registerData ingeteamRegisters[] = {
-    &inverter.wgrid, 1, 0, 73, INGETEAMMODBUS
+    &inverter.wgrid, 1, 0, 73, INGETEAMMODBUS // 69 Registros sin vatimetro externo, 73 con él instalado
 };
 
 registerData schneiderRegisters[] = { // Schneider
@@ -741,7 +741,8 @@ void ingeteamModbus(void)
     checkModbusConnection(502);
 
     for (uint8_t i = 0; i < sizeOfArray(ingeteamRegisters); ++i) {
-        if (modbustcp->readInputRegisters(ingeteamRegisters[i].serverID, ingeteamRegisters[i].address, ingeteamRegisters[i].length, &(ingeteamRegisters[i])) > 0) {
+        // if (modbustcp->readInputRegisters(ingeteamRegisters[i].serverID, ingeteamRegisters[i].address, ingeteamRegisters[i].length, &(ingeteamRegisters[i])) > 0) {
+        if (modbustcp->readInputRegisters(ingeteamRegisters[i].serverID, ingeteamRegisters[i].address, config.flags.useExternalMeter ? 73 : 69, &(ingeteamRegisters[i])) > 0) {
             // INFOV("  requested %d\n", ingeteamRegisters[i].address);
         } else {
             INFOV("  error requesting address %d\n", ingeteamRegisters[i].address);

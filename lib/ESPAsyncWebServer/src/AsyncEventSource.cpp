@@ -138,7 +138,6 @@ size_t AsyncEventSourceMessage::ack(size_t len, uint32_t time) {
 }
 
 size_t AsyncEventSourceMessage::send(AsyncClient *client) {
-  /// Original
   const size_t len = _len - _sent;
   if(client->space() < len){
     return 0;
@@ -148,16 +147,6 @@ size_t AsyncEventSourceMessage::send(AsyncClient *client) {
     client->send();
   _sent += sent;
   return sent; 
-
-  /// Para Testear
-  // if (_sent >= _len) {
-  //     return 0;
-  //   }
-  //   const size_t len_to_send = _len - _sent;
-  //   auto position = reinterpret_cast<const char*>(_data + _sent);
-  //   const size_t sent_now = client->write(position, len_to_send);
-  //   _sent += sent_now;
-  //   return sent_now;
 }
 
 // Client
@@ -184,7 +173,7 @@ AsyncEventSourceClient::AsyncEventSourceClient(AsyncWebServerRequest *request, A
 }
 
 AsyncEventSourceClient::~AsyncEventSourceClient(){
-  _messageQueue.free();
+   _messageQueue.free();
   close();
 }
 
@@ -196,19 +185,11 @@ void AsyncEventSourceClient::_queueMessage(AsyncEventSourceMessage *dataMessage)
     return;
   }
   if(_messageQueue.length() >= SSE_MAX_QUEUED_MESSAGES){
-    ets_printf("ERROR: Too many messages queued\n");
-    delete dataMessage;
+      ets_printf("ERROR: Too many messages queued\n");
+      delete dataMessage;
   } else {
-    _messageQueue.add(dataMessage);
-    
-    // Para testear
-    // // runqueue trigger when new messages added
-    // if(_client->canSend()) {
-    //   _runQueue();
-    // }
+      _messageQueue.add(dataMessage);
   }
-  
-  // Original
   if(_client->canSend())
     _runQueue();
 }
@@ -331,7 +312,9 @@ size_t AsyncEventSource::avgPacketsWaiting() const {
 }
 
 void AsyncEventSource::send(const char *message, const char *event, uint32_t id, uint32_t reconnect){
-String ev = generateEventMessage(message, event, id, reconnect);
+
+
+  String ev = generateEventMessage(message, event, id, reconnect);
   for(const auto &c: _clients){
     if(c->connected()) {
       c->write(ev.c_str(), ev.length());

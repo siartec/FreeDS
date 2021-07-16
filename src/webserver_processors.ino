@@ -321,19 +321,19 @@ String processorMqtt(const String &var)
   }
   if (var == "MQTTR1")
   {
-    return String(config.R01_mqtt);
+    return String(config.Relay_mqtt[0]);
   }
   if (var == "MQTTR2")
   {
-    return String(config.R02_mqtt);
+    return String(config.Relay_mqtt[1]);
   }
   if (var == "MQTTR3")
   {
-    return String(config.R03_mqtt);
+    return String(config.Relay_mqtt[2]);
   }
   if (var == "MQTTR4")
   {
-    return String(config.R04_mqtt);
+    return String(config.Relay_mqtt[3]);
   }
 
   if (var == "MQTTMETER")
@@ -710,7 +710,7 @@ String processorSalidas(const String &var)
   }
   if (var == "R01MIN")
   {
-    return String(config.R01Min);
+    return String(config.R01OffPercent);
   }
   if (var == "R01POTON")
   {
@@ -722,7 +722,7 @@ String processorSalidas(const String &var)
   }
   if (var == "R02MIN")
   {
-    return String(config.R02Min);
+    return String(config.R02OffPercent);
   }
   if (var == "R02POTON")
   {
@@ -734,7 +734,7 @@ String processorSalidas(const String &var)
   }
   if (var == "R03MIN")
   {
-    return String(config.R03Min);
+    return String(config.R03OffPercent);
   }
   if (var == "R03POTON")
   {
@@ -746,7 +746,7 @@ String processorSalidas(const String &var)
   }
   if (var == "R04MIN")
   {
-    return String(config.R04Min);
+    return String(config.R04OffPercent);
   }
   if (var == "R04POTON")
   {
@@ -759,19 +759,19 @@ String processorSalidas(const String &var)
 
   if (var == "R01MAN")
   {
-    return config.relaysFlags.R01Man ? "checked" : "";
+    return config.relaysFlags.R01ManualSwitch ? "checked" : "";
   }
   if (var == "R02MAN")
   {
-    return config.relaysFlags.R02Man ? "checked" : "";
+    return config.relaysFlags.R02ManualSwitch ? "checked" : "";
   }
   if (var == "R03MAN")
   {
-    return config.relaysFlags.R03Man ? "checked" : "";
+    return config.relaysFlags.R03ManualSwitch ? "checked" : "";
   }
   if (var == "R04MAN")
   {
-    return config.relaysFlags.R04Man ? "checked" : "";
+    return config.relaysFlags.R04ManualSwitch ? "checked" : "";
   }
 
   if (var == "VERSION_CODE")

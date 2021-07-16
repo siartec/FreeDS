@@ -8,7 +8,7 @@
    server.on("/json", HTTP_ANY, [](AsyncWebServerRequest * request) {
 
     AsyncJsonResponse * response = new AsyncJsonResponse();
-    JsonObject& root = response->getRoot();
+    const JsonObject& root = response->getRoot();
     root["key1"] = "key number one";
     JsonObject& nested = root.createNestedObject("nested");
     nested["key1"] = "key number one";
@@ -41,7 +41,6 @@
 #if ARDUINOJSON_VERSION_MAJOR == 5
   #define ARDUINOJSON_5_COMPATIBILITY
 #else
-  // #define DYNAMIC_JSON_DOCUMENT_SIZE  1024
   #ifndef DYNAMIC_JSON_DOCUMENT_SIZE
     #define DYNAMIC_JSON_DOCUMENT_SIZE  1024
   #endif

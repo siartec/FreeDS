@@ -37,6 +37,11 @@ Versión 1.0.7
 	- VICTRON: Comando "useBMV 1 / 0", si está activado suma al valor de la batería el valor de la potencia solar.
 	- MQTT: Añadida la publicación de los campos batteryWatts, batterySoC, loadWatts y AcIn, AcOut (solo usados por victron)
 
+- Revisión 3
+
+	- Solucionado bug en la salida analógica.
+
+	- TODO: Adaptar control Domoticz al mostrado en https://domotuto.com/script-para-cambiar-la-funcion-pwm-del-freeds/
 	- TODO: Terminar de implementar la selección de Fase a usar si lo soporta la fuente de datos a usar.
 	- TODO: Añadir programador horario según el día de la semana (por terminar la mejor forma, por ejemplo tipo Tasmota)
 	- TODO: Añadir selección de puerto modbus tcp

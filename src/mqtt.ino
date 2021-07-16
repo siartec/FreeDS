@@ -169,8 +169,6 @@ void WiFiEvent(WiFiEvent_t event)
     Error.ConexionWifi = true;
     mqttClient.disconnect();
     INFOV(PSTR("WiFi lost connection\n"));
-    receivingData = false;
-    processData = false;
     Tickers.disableAll();
     Tickers.enable(0); // Display
     Tickers.enable(3); // Wifi
@@ -595,10 +593,10 @@ void publishMqtt()
     
     sprintf(tmpTopic, "%s/stat/pwm", config.hostServer);
     publisher(tmpTopic, tmpString);
-    publisher(config.R01_mqtt, digitalRead(PIN_RL1) ? "ON" : "OFF");
-    publisher(config.R02_mqtt, digitalRead(PIN_RL2) ? "ON" : "OFF");
-    publisher(config.R03_mqtt, digitalRead(PIN_RL3) ? "ON" : "OFF");
-    publisher(config.R04_mqtt, digitalRead(PIN_RL4) ? "ON" : "OFF");
+    publisher(config.Relay_mqtt[0], digitalRead(PIN_RL1) ? "ON" : "OFF");
+    publisher(config.Relay_mqtt[1], digitalRead(PIN_RL2) ? "ON" : "OFF");
+    publisher(config.Relay_mqtt[2], digitalRead(PIN_RL3) ? "ON" : "OFF");
+    publisher(config.Relay_mqtt[3], digitalRead(PIN_RL4) ? "ON" : "OFF");
 
     // Domoticz Index
     // PWM ON/OFF

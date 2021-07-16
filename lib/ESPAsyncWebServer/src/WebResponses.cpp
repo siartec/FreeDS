@@ -104,6 +104,10 @@ AsyncWebServerResponse::~AsyncWebServerResponse(){
   _headers.free();
 }
 
+int AsyncWebServerResponse::code() const {
+  return _code;
+}
+
 void AsyncWebServerResponse::setCode(int code){
   if(_state == RESPONSE_SETUP)
     _code = code;
@@ -130,7 +134,8 @@ String AsyncWebServerResponse::_assembleHead(uint8_t version){
       addHeader("Transfer-Encoding","chunked");
   }
   String out = String();
-  int bufSize = 300;
+  // int bufSize = 300;
+  int bufSize = 512;
   char buf[bufSize];
 
   snprintf(buf, bufSize, "HTTP/1.%d %d %s\r\n", version, _code, _responseCodeToString(_code));
@@ -389,7 +394,17 @@ size_t AsyncAbstractResponse::_fillBufferAndProcessTemplates(uint8_t* data, size
   // Search for template placeholders
   uint8_t* pTemplateStart = data;
   while((pTemplateStart < &data[len]) && (pTemplateStart = (uint8_t*)memchr(pTemplateStart, TEMPLATE_PLACEHOLDER, &data[len - 1] - pTemplateStart + 1))) { // data[0] ... data[len - 1]
-    uint8_t* pTemplateEnd = (pTemplateStart < &data[len - 1]) ? (uint8_t*)memchr(pTemplateStart + 1, TEMPLATE_PLACEHOLDER, &data[len - 1] - pTemplateStart) : nullptr;
+    // uint8_t* pTemplateEnd = (pTemplateStart < &data[len - 1]) ? (uint8_t*)memchr(pTemplateStart + 1, TEMPLATE_PLACEHOLDER, &data[len - 1] - pTemplateStart) : nullptr;
+    uint8_t* pTemplateEnd = nullptr;
+    // A template can only be a one-liner
+    for (uint8_t *chr_ptr = pTemplateStart + 1; chr_ptr < &data[len]; ++chr_ptr) {
+      if (*chr_ptr == '\n') {
+        break;
+      } else if (*chr_ptr == TEMPLATE_PLACEHOLDER) {
+        pTemplateEnd = chr_ptr;
+        break;
+      }
+    }
     // temporary buffer to hold parameter name
     uint8_t buf[TEMPLATE_PARAM_NAME_LENGTH + 1];
     String paramName;

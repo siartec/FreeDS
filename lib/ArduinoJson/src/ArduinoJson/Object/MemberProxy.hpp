@@ -12,8 +12,8 @@
 #include <ArduinoJson/Variant/VariantTo.hpp>
 
 #ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4522)
+#  pragma warning(push)
+#  pragma warning(disable : 4522)
 #endif
 
 namespace ARDUINOJSON_NAMESPACE {
@@ -75,7 +75,8 @@ class MemberProxy : public VariantOperators<MemberProxy<TObject, TStringRef> >,
 
   template <typename T>
   FORCE_INLINE typename enable_if<is_same<T, char *>::value, const char *>::type
-  DEPRECATED("Replace as<char*>() with as<const char*>()") as() const {
+  ARDUINOJSON_DEPRECATED("Replace as<char*>() with as<const char*>()")
+      as() const {
     return as<const char *>();
   }
 
@@ -197,5 +198,5 @@ class MemberProxy : public VariantOperators<MemberProxy<TObject, TStringRef> >,
 }  // namespace ARDUINOJSON_NAMESPACE
 
 #ifdef _MSC_VER
-#pragma warning(pop)
+#  pragma warning(pop)
 #endif

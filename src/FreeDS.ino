@@ -20,7 +20,7 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define eepromVersion 0x17
+#define eepromVersion 0x18
 
 #define sizeOfArray(x)  (sizeof(x) / sizeof((x)[0]))
 
@@ -34,15 +34,18 @@
 #include <TickerScheduler.h>
 #include <HardwareSerial.h>
 
+#include <ESPAsyncWebServer.h>
+#include <AsyncJson.h>
 #include <ArduinoJson.h>
 #include <AsyncTCP.h>
-#include <ESPAsyncWebServer.h>
 #include <AsyncMqttClient.h>
 #include <ESPmDNS.h>
 #include <SPIFFS.h>
 #include <bitmap.h>
 #include <DNSServer.h>
 #include <esp32ModbusTCP.h>
+
+#include <asyncHttpClient.h>
 
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -114,7 +117,7 @@ extern "C"
 // Variables Globales
 const char compile_date[] PROGMEM = __DATE__ " " __TIME__;
 const char version[] PROGMEM = "1.0.7";
-const char beta[]  PROGMEM = "Rev 2";
+const char beta[]  PROGMEM = "Rev 3";
 
 const char *www_username = "admin";
 
@@ -169,10 +172,10 @@ union {
     uint32_t Relay02Auto : 1;     // Bit 7
     uint32_t Relay03Auto : 1;     // Bit 8
     uint32_t Relay04Auto : 1;     // Bit 9
-    uint32_t Relay01Man : 1;      // Bit 10
-    uint32_t Relay02Man : 1;      // Bit 11
-    uint32_t Relay03Man : 1;      // Bit 12
-    uint32_t Relay04Man : 1;      // Bit 13
+    uint32_t Relay01ManualApi : 1;      // Bit 10
+    uint32_t Relay02ManualApi : 1;      // Bit 11
+    uint32_t Relay03ManualApi : 1;      // Bit 12
+    uint32_t Relay04ManualApi : 1;      // Bit 13
     uint32_t setBrightness : 1;   // Bit 14
     uint32_t weblogConnected : 1; // Bit 15
     uint32_t ntpTime : 1;         // Bit 16
@@ -182,7 +185,8 @@ union {
     uint32_t showClampCurrent : 1;// Bit 20
     uint32_t bootCompleted : 1;   // Bit 21
     uint32_t tempShutdown : 1;    // Bit 22
-    uint32_t spare : 10;          // Bit 23 - 31
+    uint32_t timerOffIsRunning : 1; // Bit 23
+    uint32_t spare : 9;          // Bit 24 - 31
   };
 } Flags;
 
@@ -243,10 +247,10 @@ typedef union {
 typedef union {
   uint32_t data;
   struct {
-    uint32_t R01Man : 1;   // Bit 0
-    uint32_t R02Man : 1;   // Bit 1
-    uint32_t R03Man : 1;   // Bit 2
-    uint32_t R04Man : 1;   // Bit 3
+    uint32_t R01ManualSwitch : 1;   // Bit 0
+    uint32_t R02ManualSwitch : 1;   // Bit 1
+    uint32_t R03ManualSwitch : 1;   // Bit 2
+    uint32_t R04ManualSwitch : 1;   // Bit 3
     uint32_t spare : 28;   // Bit 4 - 31
   };
 } RelayFlags;
@@ -302,19 +306,19 @@ struct CONFIG
   int16_t potTarget;
   int16_t free16_1;
  
-  uint16_t R01Min;
+  uint16_t R01OffPercent;
   int16_t R01PotOn;
   int16_t R01PotOff;
 
-  uint16_t R02Min;
+  uint16_t R02OffPercent;
   int16_t R02PotOn;
   int16_t R02PotOff;
 
-  uint16_t R03Min;
+  uint16_t R03OffPercent;
   int16_t R03PotOn;
   int16_t R03PotOff;
 
-  uint16_t R04Min;
+  uint16_t R04OffPercent;
   int16_t R04PotOn;
   int16_t R04PotOff;
   RelayFlags relaysFlags; // Guarda el estado de los relés
@@ -331,10 +335,7 @@ struct CONFIG
   char MQTT_user[20];
   char MQTT_password[20];
   uint16_t MQTT_port;
-  char R01_mqtt[50];
-  char R02_mqtt[50];
-  char R03_mqtt[50];
-  char R04_mqtt[50];
+  char Relay_mqtt[4][50];
   char password[30];
   char Solax_mqtt[50];
   char Meter_mqtt[50];
@@ -436,8 +437,13 @@ struct CONFIG
   // Solax Version
   uint8_t solaxVersion;
 
+  char socketIP[4][16];
+  char socketPass[4][30];
+  uint32_t relayOffTime;
+  uint32_t relayOnTime;
+
   // FREE MEMORY
-  uint8_t free[1042];
+  uint8_t free[850];
 } config;
 
 struct METER
@@ -533,13 +539,15 @@ struct LOGGING
 } logMessage;
 
 uint8_t webMessageResponse = 0;
-boolean processData = false;
 
 String scanNetworks[15];
 int32_t rssiNetworks[15];
 uint8_t scanDoneCounter = 0;
 
-char jsonResponse[768];
+// Analizar necesidad de reservar dos objetos en lugar de uno común
+// DynamicJsonDocument jsonValues(1024);
+// StaticJsonDocument<1024> jsonDocument;
+char jsonResponse[1024];
 
 // Definiciones Conexiones
 WiFiMulti wifiMulti;
@@ -549,6 +557,9 @@ AsyncWebServer server(80);
 AsyncEventSource events("/events");
 AsyncEventSource webLogs("/weblog");
 AsyncMqttClient mqttClient;
+
+// TCP connections, 0-3 to Sockets and 4 for queries
+asyncHttpClient httpRequest[5];
 
 static esp32ModbusTCP *modbustcp = NULL;
 IPAddress modbusIP;
@@ -594,7 +605,7 @@ double sqI, sumI, Irms;
 // PID Declaration
 float Setpoint, PIDInput, PIDOutput;
 
-PID myPID(&PIDInput, &PIDOutput, &Setpoint, 0.05, 0.06, 0.03, PID::DIRECT); // Probando 0.10 0.07 0.04
+PID myPID(&PIDInput, &PIDOutput, &Setpoint, 0.05, 0.06, 0.03, PID::DIRECT); 
 
 // GoodWe UDP Config
 WiFiUDP inverterUDP;
@@ -695,32 +706,40 @@ void defaultValues()
   strcpy(config.mask, "255.255.255.0");
   strcpy(config.dns1, "8.8.8.8");
   strcpy(config.dns2, "1.1.1.1");
+  strcpy(config.socketIP[0], "0.0.0.0");
+  strcpy(config.socketIP[1], "0.0.0.0");
+  strcpy(config.socketIP[2], "0.0.0.0");
+  strcpy(config.socketIP[3], "0.0.0.0");
+  memset(config.socketPass[0], 0, sizeof config.socketPass[0]);
+  memset(config.socketPass[1], 0, sizeof config.socketPass[1]);
+  memset(config.socketPass[2], 0, sizeof config.socketPass[2]);
+  memset(config.socketPass[3], 0, sizeof config.socketPass[3]);
   config.potTarget = 60;
   config.flags.pwmEnabled = true;
-  config.relaysFlags.R01Man = false;
-  config.relaysFlags.R02Man = false;
-  config.relaysFlags.R03Man = false;
-  config.relaysFlags.R04Man = false;
-  config.R01Min = 999;
+  config.relaysFlags.R01ManualSwitch = false;
+  config.relaysFlags.R02ManualSwitch = false;
+  config.relaysFlags.R03ManualSwitch = false;
+  config.relaysFlags.R04ManualSwitch = false;
+  config.R01OffPercent = 999;
   config.R01PotOn = 9999;
   config.R01PotOff = 9999;
-  config.R02Min = 999;
+  config.R02OffPercent = 999;
   config.R02PotOn = 9999;
   config.R02PotOff = 9999;
-  config.R03Min = 999;
+  config.R03OffPercent = 999;
   config.R03PotOn = 9999;
   config.R03PotOff = 9999;
-  config.R04Min = 999;
+  config.R04OffPercent = 999;
   config.R04PotOn = 9999;
   config.R04PotOff = 9999;
   sprintf(tmpTopic, "%s/relay/1/STATUS", config.hostServer);
-  strcpy(config.R01_mqtt, tmpTopic);
+  strcpy(config.Relay_mqtt[0], tmpTopic);
   sprintf(tmpTopic, "%s/relay/2/STATUS", config.hostServer);
-  strcpy(config.R02_mqtt, tmpTopic);
+  strcpy(config.Relay_mqtt[1], tmpTopic);
   sprintf(tmpTopic, "%s/relay/3/STATUS", config.hostServer);
-  strcpy(config.R03_mqtt, tmpTopic);
+  strcpy(config.Relay_mqtt[2], tmpTopic);
   sprintf(tmpTopic, "%s/relay/4/STATUS", config.hostServer);
-  strcpy(config.R04_mqtt, tmpTopic);
+  strcpy(config.Relay_mqtt[3], tmpTopic);
   strcpy(config.Solax_mqtt, "solaxX1/tele/SENSOR");
   strcpy(config.Meter_mqtt, "meter/tele/SENSOR");
   strcpy(config.SoC_mqtt, "Inverter/BatterySOC");
@@ -752,6 +771,8 @@ void defaultValues()
   config.flags.timerEnabled = false;
   config.timerStart = 500;
   config.timerStop = 700;
+  config.relayOffTime = 60000;
+  config.relayOnTime = 20000;
   config.flags.sensorTemperatura = false;
   config.temperaturaEncendido = 55;
   config.temperaturaApagado = 65;
@@ -834,6 +855,7 @@ void setup()
   
   Flags.data = 0; // All Bits to false
   Flags.RelayTurnOn = true;
+  Flags.RelayTurnOff = false;
 
   Serial.begin(115200); // Se inicia la UART0 para debug1
   Serial.setDebugOutput(true);
@@ -919,8 +941,8 @@ void setup()
   else
   {
     // Relay Timers
-    relayOnTimer = xTimerCreate("relayOnTimer", pdMS_TO_TICKS(5000), pdFALSE, (void *)0, reinterpret_cast<TimerCallbackFunction_t>(enableRelay));
-    relayOffTimer = xTimerCreate("relayOffTimer", pdMS_TO_TICKS(5000), pdFALSE, (void *)0, reinterpret_cast<TimerCallbackFunction_t>(disableRelay));
+    relayOnTimer = xTimerCreate("relayOnTimer", pdMS_TO_TICKS(config.relayOnTime), pdFALSE, (void *)0, reinterpret_cast<TimerCallbackFunction_t>(enableRelay));
+    relayOffTimer = xTimerCreate("relayOffTimer", pdMS_TO_TICKS(config.relayOffTime), pdFALSE, (void *)0, reinterpret_cast<TimerCallbackFunction_t>(disableRelay));
     startTimer = xTimerCreate("startTimer", pdMS_TO_TICKS(45000), pdFALSE, (void *)0, reinterpret_cast<TimerCallbackFunction_t>(bootTimer));
 
     WiFi.onEvent(WiFiEvent);
@@ -1054,6 +1076,13 @@ void setup()
   
   // DEBUG
   memset(config.free, 255, sizeof config.free);
+
+  for (int i = 0; i < 4; i++) {
+    // httpRequest[i].setDebug(true);
+    httpRequest[i].onReadyStateChange(requestCBSocket);
+  }
+  // httpRequest[4].setDebug(true);
+  httpRequest[4].onReadyStateChange(requestCB);
 }
 
 long tme = millis();
@@ -1074,8 +1103,6 @@ void loop()
   if (config.flags.wifi && !Flags.firstInit)
   {
     Tickers.update(); // Actualiza todas los tareas Temporizadas
-
-    if (processData) { processingData(); }
     
     changeScreen();
     

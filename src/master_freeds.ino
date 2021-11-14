@@ -18,117 +18,95 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-void getMasterFreeDsData(void)
+void parseMasterFreeDs(char *json)
 {
-  DEBUGLN("\r\nGETMASTERFREEDSDATA()");
+  if (config.flags.debug3) { INFOV("Size: %d, Json: %s\n", strlen(json), json); }
 
-  if (config.wifi)
-  {
-    if (config.wversion == 12)
-    {
-        MasterFreeDsCom();
-    }
-  }
-}
-
-void MasterFreeDsCom(void)
-{
-    HTTPClient clientHttp;
-    WiFiClient clientWifi;
-    clientHttp.setConnectTimeout(1500);
-    httpcode = -1;
-    
-    String url = "http://" + (String)config.sensor_ip + "/masterdata";
-    clientHttp.begin(clientWifi, url);
-    httpcode = clientHttp.GET();
-
-    DEBUGLN("HTTPCODE ERROR: " + (String)httpcode);
-
-    if (httpcode == HTTP_CODE_OK)
-    {
-      String Resp = clientHttp.getString();
-      parseMasterFreeDs(Resp);
-      Error.ConexionInversor = false;
-    }
-    clientHttp.end();
-    clientWifi.stop();
-}
-
-///////// Procesa los datos recibidos desde el ESP32 Maestro
-void parseMasterFreeDs(String json)
-{
-  DEBUGLN("JSON:" + json);
   DeserializationError error = deserializeJson(root, json);
   
   if (error) {
-    INFO("deserializeJson() failed: ");
-    INFOLN(error.c_str());
-    httpcode = -1;
+    INFOV("deserializeJson() failed: %s\n", error.c_str());
   } else {
-    DEBUGLN("deserializeJson() OK");
-    masterMode = (int)root["wversion"];
-    inverter.wgrid =  (float)root["wgrid"]; // Potencia de red
+    slave.masterMode = (int)root["wversion"];
     
-    if ((int)root["PwmMaster"] >= config.pwmSlaveOn) {
-      config.P01_on = true;
+    slave.masterPwmValue = (bool)root["tempShutdown"] ? 100 : (int)root["PwmMaster"];
+
+    if (slave.masterPwmValue >= config.pwmSlaveOn) {
+      Flags.pwmIsWorking = true;
     } else {
-      config.P01_on = false;
+      if (!config.flags.pwmMan && pwm.invert_pwm > 0) {
+        Flags.pwmIsWorking = false;
+        shutdownPwm(true, "PWM: disabled by low % on master");
+      }
     }
-    
-    switch (masterMode)
-    {
-      case 3: // Mqtt
-        inverter.pv1c =   (float)root["pv1c"]; // Corriente string 1
-        inverter.pv2c =   (float)root["pv2c"]; // Corriente string 2
-        inverter.pv1v =   (float)root["pv1v"]; // Tension string 1
-        inverter.pv2v =   (float)root["pv2v"]; // Tension string 2
-        inverter.pw1 =    (float)root["pw1"];    // Potencia string 1
-        inverter.pw2 =    (float)root["pw2"];    // Potencia string 2
-        inverter.gridv =  (float)root["gridv"];   // Tension de red
-        inverter.wtoday = (float)root["wtoday"];    // Potencia solar diaria
-        inverter.wsolar = (float)root["wsolar"];    // Potencia solar actual
-        break;
-    case 4:
-    case 5:
-    case 6:
-      meter.voltage =      (float)root["mvoltage"];
-      meter.current =      (float)root["mcurrent"];
-      meter.powerFactor =  (float)root["mpowerFactor"];
-      meter.frequency =    (float)root["mfrequency"];
-      meter.importActive = (float)root["mimportActive"];
-      meter.exportActive = (float)root["mexportActive"];
-      meter.energyTotal =  (float)root["menergyTotal"];
-      meter.activePower =  (float)root["mactivePower"];
-      meter.aparentPower = (float)root["maparentPower"];
-      meter.reactivePower =  (float)root["mreactivePower"];
-      meter.importReactive = (float)root["mimportReactive"];
-      meter.exportReactive = (float)root["mexportReactive"];
-      meter.phaseAngle =     (float)root["mphaseAngle"];
-      break;
-    case 9:
-    case 10:
-      meter.voltage =      (float)root["mvoltage"];
-      meter.powerFactor =  (float)root["mpowerFactor"];
-      meter.importActive = (float)root["mimportActive"];
-      meter.exportActive = (float)root["mexportActive"];
-      meter.activePower =  (float)root["mactivePower"];
-      meter.reactivePower =  (float)root["mreactivePower"];
-      inverter.wsolar =    (float)root["wsolar"];
-      inverter.gridv =    (float)root["gridv"];
-      break;
-    default:
-      inverter.wtoday = (float)root["wtoday"];
-      inverter.wsolar = (float)root["wsolar"];
-      inverter.gridv =  (float)root["gridv"];
-      inverter.pv1c =   (float)root["pv1c"];
-      inverter.pv1v =   (float)root["pv1v"];
-      inverter.pw1 =    (float)root["pw1"];
-      inverter.pv2c =   (float)root["pv2c"];
-      inverter.pv2v =   (float)root["pv2v"];
-      inverter.pw2 =    (float)root["pw2"];
-      break;
-    }
-    Error.ConexionInversor = false;
-    timers.ErrorConexionRed = millis();
+
+  defineWebMonitorFields(slave.masterMode);
+  // Inverter data
+  if (webMonitorFields.wsolar) {
+    inverter.wsolar = (float)root["wsolar"]; // Potencia solar actual
+  }
+  if (webMonitorFields.wgrid) {
+    inverter.wgrid = (float)root["wgrid"]; // Potencia de red
+    if (config.flags.changeGridSign) { inverter.wgrid *= -1.0; }
+  }
+  if (webMonitorFields.temperature) {
+    inverter.temperature = (float)root["invTemp"]; // Temperatura Inversor
+  }
+  if (webMonitorFields.batteryWatts) {
+    inverter.batteryWatts = (float)root["wbattery"];
+  }
+  if (webMonitorFields.batterySoC) {
+    inverter.batterySoC = (float)root["invSoC"];
+  }
+  if (webMonitorFields.loadWatts) {
+    inverter.loadWatts = (float)root["wload"];
+  }
+  if (webMonitorFields.wtoday) {
+    inverter.wtoday = (float)root["wtoday"]; // Potencia solar diaria
+  }
+  if (webMonitorFields.gridv) {
+    inverter.gridv = (float)root["gridv"]; // Tension de red
+  }
+  if (webMonitorFields.pv1c) {
+    inverter.pv1c = (float)root["pv1c"]; // Corriente string 1
+  }
+  if (webMonitorFields.pv1v) {
+    inverter.pv1v = (float)root["pv1v"]; // Tension string 1
+  }
+  if (webMonitorFields.pw1) {
+    inverter.pw1 = (float)root["pw1"]; // Potencia string 1
+  }
+  if (webMonitorFields.pv2c) {
+    inverter.pv2c = (float)root["pv2c"]; // Corriente string 2
+  }
+  if (webMonitorFields.pv2v) {
+    inverter.pv2v = (float)root["pv2v"]; // Tension string 2
+  }
+  if (webMonitorFields.pw2) {
+    inverter.pw2 = (float)root["pw2"]; // Potencia string 2  
+  }
+
+  // Meter data
+  if (webMonitorFields.voltage) {
+    meter.voltage = (float)root["mvoltage"];
+  }
+  if (webMonitorFields.current) {
+    meter.current = (float)root["mcurrent"];
+  }
+  if (webMonitorFields.powerFactor) {
+    meter.powerFactor = (float)root["mpowerFactor"];
+  }
+  if (webMonitorFields.frequency) {
+    meter.frequency = (float)root["mfrequency"];
+  }
+  if (webMonitorFields.importActive) {
+    meter.importActive = (float)root["mimportActive"];
+  }
+  if (webMonitorFields.exportActive) {
+    meter.exportActive = (float)root["mexportActive"];
+  }
+
+    Error.RecepcionDatos = false;
+    timers.ErrorRecepcionDatos = millis();
   }
 }

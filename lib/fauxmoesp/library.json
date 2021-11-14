@@ -1,0 +1,17 @@
+{
+    "name": "fauxmoESP",
+    "description": "fauxmoESP",
+    "keywords": "alexa, esp32",
+    "authors": [
+        {
+            "name": "Xose Perez, Pablo Z.",
+            "maintainer": true
+        }
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/pablozg/fauxmoESP"
+    },
+    "version": "1.0.0",
+    "frameworks": "Arduino"
+}

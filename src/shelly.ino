@@ -18,78 +18,37 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-void getShellyData(void)
-{
-  DEBUGLN("\r\nGETSHELLYDATA()");
-
-  if (config.wifi)
-  {
-    if (config.wversion == 10)
-    {
-      for (int sensor = 1; sensor <= 2; sensor++)
-      {
-        shellyCom(sensor); // Shelly EM
-      }
-    }
-  }
-}
-
 // Shelly EM
-void shellyCom(int sensor)
+void parseShellyEM(char *json, int sensor)
 {
-    HTTPClient clientHttp;
-    WiFiClient clientWifi;
-    clientHttp.setConnectTimeout(3000);
-    httpcode = -1;
-    
-    String url = "http://" + (String)config.sensor_ip + "/emeter/" + (String)(sensor - 1);
-    clientHttp.begin(clientWifi, url);
-    httpcode = clientHttp.GET();
-
-    DEBUGLN("HTTPCODE ERROR: " + (String)httpcode + " Sensor: " + (String)(sensor - 1));
-
-    if (httpcode == HTTP_CODE_OK)
-    {
-      String Resp = clientHttp.getString();
-      parseShellyEM(Resp, sensor);
-      Error.ConexionInversor = false;
-    }
-    clientHttp.end();
-    clientWifi.stop();
-}
-
-// Shelly EM
-void parseShellyEM(String json, int sensor)
-{
-  DEBUGLN("JSON:" + json);
+  if (config.flags.debug3) { INFOV("Shelly Size: %d, Json: %s\n", strlen(json), json); }
+  
   DeserializationError error = deserializeJson(root, json);
   
   if (error) {
-    INFO("deserializeJson() failed: ");
-    INFOLN(error.c_str());
-    httpcode = -1;
+    INFOV("deserializeJson() failed: %s\n", error.c_str());
   } else {
-    DEBUGLN("deserializeJson() OK");
     switch (sensor)
     {
       case 1: // Medida de Red
         if (root["is_valid"] == true) {
-          meter.activePower = inverter.wgrid = roundf((float)root["power"] * -1.0); // Potencia de red (Negativo: de red - Positivo: a red)
-          meter.voltage = roundf((float)root["voltage"]);
-          meter.reactivePower = roundf((float)root["reactive"] * -1.0);
+          meter.activePower = inverter.wgrid = roundf((float)root["power"]);
+          meter.voltage = inverter.gridv = roundf((float)root["voltage"]);
+          meter.reactivePower = roundf((float)root["reactive"]);
           meter.importActive = roundf((float)root["total"] / 1000.0);
           meter.exportActive = roundf((float)root["total_returned"] / 1000.0);
-          Error.ConexionInversor = false;
+          Error.RecepcionDatos = false;
+          if (!config.flags.changeGridSign) { meter.activePower *= -1.0; inverter.wgrid *= -1.0; meter.reactivePower *= -1.0;}
         }
         break;
       case 2: // Medida de Inversor
         if (root["is_valid"] == true) {
           inverter.wsolar = roundf((float)root["power"]); // Potencia de red (Negativo: de red - Positivo: a red)
-          inverter.gridv = roundf((float)root["voltage"]);
-          Error.ConexionInversor = false;
+          // inverter.gridv = roundf((float)root["voltage"]);
+          Error.RecepcionDatos = false;
         }
         break;
     }
-    timers.ErrorConexionRed = millis();
+    timers.ErrorRecepcionDatos = millis();
   }
 }
